@@ -61,14 +61,7 @@ public class PapaManager : MonoBehaviour
     // --- Gemini request ---
     public void RequestRecipes()
     {
-        try
-        {
-            StartCoroutine(SendRequestToGemini(foodList));
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError("Error starting Gemini request: " + ex.Message);
-        }
+        StartCoroutine(SendRequestToGemini(foodList));
     }
 
     private IEnumerator SendRequestToGemini(List<string> foods)
@@ -98,38 +91,32 @@ public class PapaManager : MonoBehaviour
 
         using (UnityWebRequest www = new UnityWebRequest(geminiEndpoint, "POST"))
         {
-            try
+            byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(json);
+            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            www.downloadHandler = new DownloadHandlerBuffer();
+            www.SetRequestHeader("Content-Type", "application/json");
+            www.SetRequestHeader("Authorization", "Bearer " + geminiApiKey);
+
+            // ✅ yield is here, outside of try/catch
+            yield return www.SendWebRequest();
+
+            if (www.result != UnityWebRequest.Result.Success)
             {
-                byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(json);
-                www.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                www.downloadHandler = new DownloadHandlerBuffer();
-                www.SetRequestHeader("Content-Type", "application/json");
-                www.SetRequestHeader("Authorization", "Bearer " + geminiApiKey);
-
-                yield return www.SendWebRequest();
-
-                if (www.result != UnityWebRequest.Result.Success)
-                {
-                    Debug.LogError("Gemini request error: " + www.error);
-                }
-                else
-                {
-                    string responseText = www.downloadHandler.text;
-                    Debug.Log("Received: " + responseText);
-
-                    try
-                    {
-                        ProcessAndShowRecipes(responseText);
-                    }
-                    catch (System.Exception ex)
-                    {
-                        Debug.LogError("Error processing Gemini response: " + ex.Message);
-                    }
-                }
+                Debug.LogError("Gemini request error: " + www.error);
             }
-            catch (System.Exception ex)
+            else
             {
-                Debug.LogError("Unexpected error during Gemini request: " + ex.Message);
+                string responseText = www.downloadHandler.text;
+                Debug.Log("Received: " + responseText);
+
+                try
+                {
+                    ProcessAndShowRecipes(responseText);
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError("Error processing Gemini response: " + ex.Message);
+                }
             }
         }
     }
